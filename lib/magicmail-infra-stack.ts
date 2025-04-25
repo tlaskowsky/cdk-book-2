@@ -28,6 +28,9 @@ export class MagicmailInfraStack extends cdk.Stack {
       lifecycleRules: [/* ... */],
     });
 
+    // --- Define DynamoDB Table for Creatures (Placeholder) --- <--- ADD THIS COMMENT
+    // const creatureTable = new dynamodb.Table(this, 'CreatureTable', { ... });
+
     // --- Add Tags ---
     cdk.Tags.of(assetsBucket).add('Project', project); // Use project context value
     cdk.Tags.of(assetsBucket).add('Environment', environment); // Use environment context value
