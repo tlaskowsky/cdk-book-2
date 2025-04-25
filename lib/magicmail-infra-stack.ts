@@ -17,6 +17,7 @@ export class MagicmailInfraStack extends cdk.Stack {
     }
 
     // --- Define S3 Asset Bucket ---
+    // This bucket stores assets like design files and mockups for MagicMail. <--- ADD THIS COMMENT
     const assetsBucket = new s3.Bucket(this, 'MagicMailAssetsBucket', {
       versioned: true,
       encryption: s3.BucketEncryption.S3_MANAGED,
