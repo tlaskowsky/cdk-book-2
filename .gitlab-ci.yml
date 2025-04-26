@@ -1,10 +1,11 @@
-# .gitlab-ci.yml - Version 4 (Adding Synth Stage)
+# .gitlab-ci.yml - Version 5 (Adding Diff Stage)
 
 # Define the stages
 stages:
   - prepare
   - validate
-  - synth    # <-- Add synth stage
+  - synth
+  - diff     # <-- Add diff stage
 
 default:
   image: node:18
@@ -12,8 +13,8 @@ default:
     - docker
 
 # --- Prepare Stage ---
-
 install_deps:
+  # ... (job definition remains the same) ...
   stage: prepare
   script:
     - echo "Installing dependencies..."
@@ -27,8 +28,8 @@ install_deps:
     policy: pull-push
 
 # --- Validate Stage ---
-
 lint_code:
+  # ... (job definition remains the same) ...
   stage: validate
   script:
     - echo "Running linter..."
@@ -43,6 +44,7 @@ lint_code:
     policy: pull
 
 test_code:
+  # ... (job definition remains the same) ...
   stage: validate
   script:
     - echo "Running unit tests..."
@@ -56,11 +58,11 @@ test_code:
       - node_modules/
     policy: pull
 
-# --- Synth Stage --- <-- NEW STAGE & JOB
-
+# --- Synth Stage ---
 synthesize_template:
+  # ... (job definition remains the same) ...
   stage: synth
-  before_script: # Configure AWS credentials for this job
+  before_script:
     - echo "Configuring AWS credentials for synth..."
     - apt-get update -y && apt-get install -y awscli
     - aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
@@ -69,13 +71,41 @@ synthesize_template:
     - echo "AWS configuration complete."
   script:
     - echo "Compiling TypeScript (needed for synth)..."
-    - npm run build # Synth requires compiled JS code
+    - npm run build
     - echo "Synthesizing CloudFormation templates..."
-    # Synthesize the main stack (adjust if you have multiple)
     - npx cdk synth MagicmailInfraStack
-    # Optional: Synthesize other stacks if needed, like the GitLab server stack
-    # - npx cdk synth GitLabServerStack
+  needs: [install_deps]
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - node_modules/
+    policy: pull
+  artifacts:
+    paths:
+      - cdk.out/
+    expire_in: 1 day
+
+# --- Diff Stage --- <-- NEW STAGE & JOB
+
+preview_changes:
+  stage: diff
+  before_script: # Also needs AWS credentials
+    - echo "Configuring AWS credentials for diff..."
+    - apt-get update -y && apt-get install -y awscli
+    - aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
+    - aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
+    - aws configure set region $AWS_DEFAULT_REGION
+    - echo "AWS configuration complete."
+  script:
+    - echo "Compiling TypeScript (needed for diff)..."
+    - npm run build # Diff also needs compiled code
+    - echo "Checking for infrastructure changes..."
+    # Run cdk diff for the main stack
+    - npx cdk diff MagicmailInfraStack
   needs: [install_deps] # Needs dependencies installed
+                         # Could also depend on 'synthesize_template' if we used its artifacts
   cache: # Reuse the cache
     key:
       files:
@@ -83,7 +113,6 @@ synthesize_template:
     paths:
       - node_modules/
     policy: pull
-  artifacts: # Save the synth output
-    paths:
-      - cdk.out/
-    expire_in: 1 day
+  # This job typically runs on all branches (including merge requests)
+  # to allow reviewing changes before merge/deploy.
+  # We'll refine rules later.
