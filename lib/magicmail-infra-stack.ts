@@ -66,5 +66,12 @@ export class MagicmailInfraStack extends cdk.Stack {
         description: `The ARN of the S3 bucket for ${environment} assets`,
         exportName: `${project}-${environment}-AssetsBucketArn`,
     });
+
+    // --- Add Output for DynamoDB Table Name --- START ADDITION ---
+    new cdk.CfnOutput(this, 'CreatureTableName', {
+      value: creatureTable.tableName,
+      description: 'Name of the DynamoDB table for creature data',
+    });
+    // --- Add Output for DynamoDB Table Name --- END ADDITION ---
   }
 }
