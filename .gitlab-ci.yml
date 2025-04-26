@@ -1,80 +1,89 @@
-# `.gitlab-ci.yml` - Version 3 (Adding Cache & Needs for Optimization)
+# .gitlab-ci.yml - Version 4 (Adding Synth Stage)
 
 # Define the stages
 stages:
- - prepare  # New stage for installing dependencies once
- - validate # Run code checks
- - build    # Compile code
+  - prepare
+  - validate
+  - synth    # <-- Add synth stage
 
 default:
- image: node:18
- tags:
-   - docker
+  image: node:18
+  tags:
+    - docker
 
 # --- Prepare Stage ---
 
 install_deps:
- stage: prepare
- script:
-   - echo "Installing dependencies..."
-   - npm ci
- cache: # Define the cache for node_modules
-   key:
-     files:
-       - package-lock.json # Cache is invalidated if lock file changes
-   paths:
-     - node_modules/      # Cache this directory
-   policy: pull-push       # Download cache at start, upload updated cache at end
+  stage: prepare
+  script:
+    - echo "Installing dependencies..."
+    - npm ci
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - node_modules/
+    policy: pull-push
 
 # --- Validate Stage ---
 
 lint_code:
- stage: validate
- script:
-   - echo "Running linter..."
-   - npm run lint
- needs: [install_deps] # Specify that this job needs 'install_deps' to complete first
- cache: # Reuse the cache created by install_deps
-   key:
-     files:
-       - package-lock.json
-   paths:
-     - node_modules/
-   policy: pull # Only download the cache, don't re-upload
+  stage: validate
+  script:
+    - echo "Running linter..."
+    - npm run lint
+  needs: [install_deps]
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - node_modules/
+    policy: pull
 
 test_code:
- stage: validate
- script:
-   - echo "Running unit tests..."
-   - npm run test
- needs: [install_deps] # Also needs dependencies installed first
- cache: # Reuse the cache
-   key:
-     files:
-       - package-lock.json
-   paths:
-     - node_modules/
-   policy: pull
+  stage: validate
+  script:
+    - echo "Running unit tests..."
+    - npm run test
+  needs: [install_deps]
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - node_modules/
+    policy: pull
 
-# --- Build Stage ---
+# --- Synth Stage --- <-- NEW STAGE & JOB
 
-compile_code: # Renamed from build_app for clarity
- stage: build
- script:
-   - echo "Compiling TypeScript..."
-   - npm run build
- needs: [install_deps] # Needs dependencies, but can run alongside validate jobs if desired
-                      # Or add needs: [lint_code, test_code] to run after validation
- cache: # Reuse the cache
-   key:
-     files:
-       - package-lock.json
-   paths:
-     - node_modules/
-   policy: pull
- # Optional: If we wanted to save compiled JS as artifact:
- # artifacts:
- #   paths:
- #     - lib/**/*.js
- #     - bin/**/*.js
- #   expire_in: 1 day
+synthesize_template:
+  stage: synth
+  before_script: # Configure AWS credentials for this job
+    - echo "Configuring AWS credentials for synth..."
+    - apt-get update -y && apt-get install -y awscli
+    - aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
+    - aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
+    - aws configure set region $AWS_DEFAULT_REGION
+    - echo "AWS configuration complete."
+  script:
+    - echo "Compiling TypeScript (needed for synth)..."
+    - npm run build # Synth requires compiled JS code
+    - echo "Synthesizing CloudFormation templates..."
+    # Synthesize the main stack (adjust if you have multiple)
+    - npx cdk synth MagicmailInfraStack
+    # Optional: Synthesize other stacks if needed, like the GitLab server stack
+    # - npx cdk synth GitLabServerStack
+  needs: [install_deps] # Needs dependencies installed
+  cache: # Reuse the cache
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - node_modules/
+    policy: pull
+  artifacts: # Save the synth output
+    paths:
+      - cdk.out/
+    expire_in: 1 day
