@@ -1,11 +1,22 @@
-# .gitlab-ci.yml - Version 5 (Adding Diff Stage)
+# .gitlab-ci.yml - Version 8 (Optimized)
+
+# Define a hidden job template for AWS configuration
+.aws_configure_template: &aws_configure
+  before_script:
+    - echo "Configuring AWS credentials..."
+    - apt-get update -y && apt-get install -y awscli
+    - aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
+    - aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
+    - aws configure set region $AWS_DEFAULT_REGION
+    - echo "AWS configuration complete."
 
 # Define the stages
 stages:
   - prepare
   - validate
   - synth
-  - diff     # <-- Add diff stage
+  - diff
+  - deploy
 
 default:
   image: node:18
@@ -14,105 +25,84 @@ default:
 
 # --- Prepare Stage ---
 install_deps:
-  # ... (job definition remains the same) ...
   stage: prepare
   script:
-    - echo "Installing dependencies..."
     - npm ci
   cache:
     key:
-      files:
-        - package-lock.json
-    paths:
-      - node_modules/
+      files: [package-lock.json]
+    paths: [node_modules/]
     policy: pull-push
 
 # --- Validate Stage ---
 lint_code:
-  # ... (job definition remains the same) ...
   stage: validate
   script:
-    - echo "Running linter..."
     - npm run lint
   needs: [install_deps]
   cache:
     key:
-      files:
-        - package-lock.json
-    paths:
-      - node_modules/
+      files: [package-lock.json]
+    paths: [node_modules/]
     policy: pull
 
 test_code:
-  # ... (job definition remains the same) ...
   stage: validate
   script:
-    - echo "Running unit tests..."
     - npm run test
   needs: [install_deps]
   cache:
     key:
-      files:
-        - package-lock.json
-    paths:
-      - node_modules/
+      files: [package-lock.json]
+    paths: [node_modules/]
     policy: pull
 
 # --- Synth Stage ---
 synthesize_template:
-  # ... (job definition remains the same) ...
   stage: synth
-  before_script:
-    - echo "Configuring AWS credentials for synth..."
-    - apt-get update -y && apt-get install -y awscli
-    - aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
-    - aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
-    - aws configure set region $AWS_DEFAULT_REGION
-    - echo "AWS configuration complete."
+  <<: *aws_configure # <-- Use the anchor alias
   script:
-    - echo "Compiling TypeScript (needed for synth)..."
     - npm run build
-    - echo "Synthesizing CloudFormation templates..."
     - npx cdk synth MagicmailInfraStack
   needs: [install_deps]
   cache:
     key:
-      files:
-        - package-lock.json
-    paths:
-      - node_modules/
+      files: [package-lock.json]
+    paths: [node_modules/]
     policy: pull
   artifacts:
-    paths:
-      - cdk.out/
+    paths: [cdk.out/]
     expire_in: 1 day
 
-# --- Diff Stage --- <-- NEW STAGE & JOB
-
+# --- Diff Stage ---
 preview_changes:
   stage: diff
-  before_script: # Also needs AWS credentials
-    - echo "Configuring AWS credentials for diff..."
-    - apt-get update -y && apt-get install -y awscli
-    - aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
-    - aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
-    - aws configure set region $AWS_DEFAULT_REGION
-    - echo "AWS configuration complete."
+  <<: *aws_configure # <-- Use the anchor alias
   script:
-    - echo "Compiling TypeScript (needed for diff)..."
-    - npm run build # Diff also needs compiled code
-    - echo "Checking for infrastructure changes..."
-    # Run cdk diff for the main stack
+    - npm run build
     - npx cdk diff MagicmailInfraStack
-  needs: [install_deps] # Needs dependencies installed
-                         # Could also depend on 'synthesize_template' if we used its artifacts
-  cache: # Reuse the cache
+  needs: [install_deps]
+  cache:
     key:
-      files:
-        - package-lock.json
-    paths:
-      - node_modules/
+      files: [package-lock.json]
+    paths: [node_modules/]
     policy: pull
-  # This job typically runs on all branches (including merge requests)
-  # to allow reviewing changes before merge/deploy.
-  # We'll refine rules later.
+
+# --- Deploy Stage ---
+deploy_app:
+  stage: deploy
+  <<: *aws_configure # <-- Use the anchor alias
+  script:
+    - npm run build
+    - echo "Deploying CDK stack to AWS..."
+    - npx cdk deploy MagicmailInfraStack --require-approval never
+  needs: [preview_changes]
+  cache:
+    key:
+      files: [package-lock.json]
+    paths: [node_modules/]
+    policy: pull
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: manual
+      allow_failure: false
