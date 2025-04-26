@@ -1,6 +1,6 @@
-# .gitlab-ci.yml - Version 8 (Optimized)
+# .gitlab-ci.yml - Version 9 (Adding Lint Stage for cfn-lint After synth)
 
-# Define a hidden job template for AWS configuration
+# Define reusable AWS credential configuration
 .aws_configure_template: &aws_configure
   before_script:
     - echo "Configuring AWS credentials..."
@@ -10,11 +10,11 @@
     - aws configure set region $AWS_DEFAULT_REGION
     - echo "AWS configuration complete."
 
-# Define the stages
 stages:
   - prepare
   - validate
   - synth
+  - lint    # <-- NEW: Stage to validate synthesized CloudFormation template
   - diff
   - deploy
 
@@ -60,7 +60,7 @@ test_code:
 # --- Synth Stage ---
 synthesize_template:
   stage: synth
-  <<: *aws_configure # <-- Use the anchor alias
+  <<: *aws_configure
   script:
     - npm run build
     - npx cdk synth MagicmailInfraStack
@@ -74,10 +74,29 @@ synthesize_template:
     paths: [cdk.out/]
     expire_in: 1 day
 
+# --- Lint Stage ---
+# This MUST come after synth, because it runs on the output of `cdk synth` (in cdk.out)
+lint_cfn_template:
+  stage: lint
+  <<: *aws_configure
+  script:
+    - echo "Installing cfn-lint..."
+    # The node:18 image does not include Python by default
+    - apt-get update && apt-get install -y python3 python3-pip
+    - python3 -m pip install --break-system-packages cfn-lint
+    - echo "Validating CloudFormation template..."
+    - cfn-lint cdk.out/MagicmailInfraStack.template.json
+  needs: [synthesize_template]
+  cache:
+    key:
+      files: [package-lock.json]
+    paths: [node_modules/]
+    policy: pull
+
 # --- Diff Stage ---
 preview_changes:
   stage: diff
-  <<: *aws_configure # <-- Use the anchor alias
+  <<: *aws_configure
   script:
     - npm run build
     - npx cdk diff MagicmailInfraStack
@@ -91,10 +110,9 @@ preview_changes:
 # --- Deploy Stage ---
 deploy_app:
   stage: deploy
-  <<: *aws_configure # <-- Use the anchor alias
+  <<: *aws_configure
   script:
     - npm run build
-    - echo "Deploying CDK stack to AWS..."
     - npx cdk deploy MagicmailInfraStack --require-approval never
   needs: [preview_changes]
   cache:
