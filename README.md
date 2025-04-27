@@ -80,6 +80,21 @@ If you're new to the series or want a refresher, the code for Book 1 is availabl
 
 Book 1 covers foundational topics like AWS CDK, TypeScript, and basic Git workflows, and sets the stage for the CI/CD pipelines built in Book 2.
 
+## 📚 Continue Your Journey
+
+Want to read the book?
+
+- 📘 **Book 1** (*AWS CDK Made Easy! Build Cloud Infrastructure with TypeScript and CDK*)  
+  [Available on Kindle →](https://a.co/d/a25mc8O)
+
+- 📗 **Book 2** (*AWS CDK Made Easy! Build and Deploy CI/CD Pipelines with Git and GitLab® to AWS*)  
+  [Available on Kindle →](https://a.co/d/btQTnNn)
+
+- 📚 **MagicMail AWS CDK Series (Full Series Page)**  
+  [View the Series on Amazon →](https://www.amazon.com/dp/B0F5LCMFSG?binding=kindle_edition&ref=dbs_dp_rwt_sb_pc_tkin)
+
+
+---
 
 ## © 2025 Terumi Laskowsky
 
