@@ -85,13 +85,16 @@ Book 1 covers foundational topics like AWS CDK, TypeScript, and basic Git workfl
 Want to read the book?
 
 - 📘 **Book 1** (*AWS CDK Made Easy! Build Cloud Infrastructure with TypeScript and CDK*)  
-  [Available on Kindle →](https://a.co/d/a25mc8O)
+  - [Available on Kindle →](https://a.co/d/a25mc8O)
+  - [Source Code Repository →](https://github.com/tlaskowsky/cdk-book-1)
 
 - 📗 **Book 2** (*AWS CDK Made Easy! Build and Deploy CI/CD Pipelines with Git and GitLab® to AWS*)  
-  [Available on Kindle →](https://a.co/d/btQTnNn)
+  - [Available on Kindle →](https://a.co/d/btQTnNn)
+  - [Source Code Repository →](https://github.com/tlaskowsky/cdk-book-2)
 
 - 📚 **MagicMail AWS CDK Series (Full Series Page)**  
   [View the Series on Amazon →](https://www.amazon.com/dp/B0F5LCMFSG?binding=kindle_edition&ref=dbs_dp_rwt_sb_pc_tkin)
+
 
 
 ---
